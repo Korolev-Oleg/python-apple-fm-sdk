@@ -29,7 +29,12 @@ from .c_helpers import (
 )
 from enum import IntEnum
 from typing import Optional
-from .errors import FoundationModelsError
+from .errors import (
+    FoundationModelsError,
+    GenerationErrorCode,
+    _status_code_to_exception,
+)
+import threading
 
 import ctypes
 from ctypes import c_int
@@ -229,3 +234,11 @@ class SystemLanguageModel(_ManagedObject):
             return True, None
         else:
             return False, SystemLanguageModelUnavailableReason(reason.value)
+
+    def token_count(self, prompt: str):
+        """Counting prompt tokens"""
+        prompt_bytes = prompt.encode("utf-8")
+        return lib.FMSystemLanguageModelTokenCount(
+            self._ptr,
+            prompt_bytes,
+        )
