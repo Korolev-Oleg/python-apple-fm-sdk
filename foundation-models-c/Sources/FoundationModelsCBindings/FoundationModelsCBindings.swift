@@ -87,6 +87,39 @@ public func FMSystemLanguageModelIsAvailable(
   }
 }
 
+
+@_cdecl("FMSystemLanguageModelTokenCount")
+public func FMSystemLanguageModelTokenCount(
+  model: OpaquePointer,
+  prompt: UnsafePointer<CChar>,
+) -> Int32 {
+  guard #available(macOS 26.4, *) else {
+    print("model.tokenCount available only for macOS 26.4+")
+    return -2
+  }
+
+  let model = Unmanaged<SystemLanguageModel>.fromOpaque(UnsafeRawPointer(model))
+    .takeUnretainedValue()
+  let promptString = String(cString: prompt)
+
+  let semaphore = DispatchSemaphore(value: 0)
+  let resultBox = Mutex<Int32>(-1)
+
+  Task {
+    defer { semaphore.signal() }
+
+    do {
+      let tokenCount = try await model.tokenCount(for: Prompt(promptString))
+      resultBox.withLock { $0 = Int32(tokenCount) }
+    } catch {
+      resultBox.withLock { $0 = -1 }
+    }
+  }
+
+  semaphore.wait()
+  return resultBox.withLock { $0 }
+}
+
 // MARK: - Session creation
 
 @_cdecl("FMLanguageModelSessionCreateDefault")
